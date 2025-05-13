@@ -6,9 +6,8 @@ import numpy as np
 import modules.globals
 import logging
 import modules.processors.frame.core
-from modules.core import update_status
 from modules.face_analyser import get_one_face, get_many_faces, default_source_face
-from modules.typing import Face, Frame
+from modules.typing_util import Face, Frame
 from modules.utilities import (
     conditional_download,
     is_image,
@@ -40,18 +39,28 @@ def pre_check() -> bool:
 
 def pre_start() -> bool:
     if not modules.globals.map_faces and not is_image(modules.globals.source_path):
-        update_status("Select an image for source path.", NAME)
+        print(f"[{NAME}] Select an image for source path.")
         return False
-    elif not modules.globals.map_faces and not get_one_face(
-        cv2.imread(modules.globals.source_path)
-    ):
-        update_status("No face in source path detected.", NAME)
-        return False
+    elif not modules.globals.map_faces:
+        source_img = cv2.imread(modules.globals.source_path)
+        if source_img is None:
+            print(f"[{NAME}] Could not read source image: {modules.globals.source_path}")
+            return False
+        if not get_one_face(source_img):
+            print(f"[{NAME}] No face in source path detected.")
+            return False
     if not is_image(modules.globals.target_path) and not is_video(
         modules.globals.target_path
     ):
-        update_status("Select an image or video for target path.", NAME)
+        pass
+
+    try:
+        get_face_swapper()
+        print(f"[{NAME}] Face swapper model ready.")
+    except Exception as e:
+        print(f"[{NAME}] Error loading face swapper model: {e}")
         return False
+
     return True
 
 
@@ -117,7 +126,6 @@ def process_frame(source_face: Face, temp_frame: Frame) -> Frame:
         else:
             logging.error("Face detection failed for target or source.")
     return temp_frame
-
 
 
 def process_frame_v2(temp_frame: Frame, temp_frame_path: str = "") -> Frame:
@@ -221,7 +229,7 @@ def process_frames(
                 result = process_frame(source_face, temp_frame)
                 cv2.imwrite(temp_frame_path, result)
             except Exception as exception:
-                print(exception)
+                print(f"[{NAME}] Error processing frame {temp_frame_path}: {exception}")
                 pass
             if progress:
                 progress.update(1)
@@ -232,7 +240,7 @@ def process_frames(
                 result = process_frame_v2(temp_frame, temp_frame_path)
                 cv2.imwrite(temp_frame_path, result)
             except Exception as exception:
-                print(exception)
+                print(f"[{NAME}] Error processing frame {temp_frame_path}: {exception}")
                 pass
             if progress:
                 progress.update(1)
@@ -246,9 +254,7 @@ def process_image(source_path: str, target_path: str, output_path: str) -> None:
         cv2.imwrite(output_path, result)
     else:
         if modules.globals.many_faces:
-            update_status(
-                "Many faces enabled. Using first source image. Progressing...", NAME
-            )
+            print(f"[{NAME}] Many faces enabled. Using first source image. Progressing...")
         target_frame = cv2.imread(output_path)
         result = process_frame_v2(target_frame)
         cv2.imwrite(output_path, result)
@@ -256,9 +262,7 @@ def process_image(source_path: str, target_path: str, output_path: str) -> None:
 
 def process_video(source_path: str, temp_frame_paths: List[str]) -> None:
     if modules.globals.map_faces and modules.globals.many_faces:
-        update_status(
-            "Many faces enabled. Using first source image. Progressing...", NAME
-        )
+        print(f"[{NAME}] Many faces enabled. Using first source image. Progressing...")
     modules.processors.frame.core.process_video(
         source_path, temp_frame_paths, process_frames
     )

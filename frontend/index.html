@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deep Live Cam - WebRTC</title>
+    <style>
+      :root {
+        --primary-color: #007bff; /* Blue */
+        --primary-hover-color: #0056b3;
+        --secondary-color: #6c757d; /* Gray */
+        --background-color: #f8f9fa; /* Light gray */
+        --card-background-color: #ffffff; /* White */
+        --text-color: #333;
+        --border-color: #dee2e6;
+        --input-bg-color: #fff;
+        --input-border-color: #ced4da;
+        --box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        --border-radius: 0.3rem;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background-color: var(--background-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        line-height: 1.6;
+      }
+
+      h1 {
+        color: var(--primary-color);
+        margin-bottom: 20px;
+      }
+      h2 {
+        margin-top: 0;
+        font-size: 1.2em;
+        color: var(--secondary-color);
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 5px;
+        margin-bottom: 15px;
+      }
+      h3 {
+        margin-top: 0;
+        color: var(--primary-color);
+      }
+
+      .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 30px;
+        width: 100%;
+        max-width: 1200px; /* Limit overall width */
+      }
+
+      .main-content {
+        display: flex;
+        flex-wrap: wrap; /* Allow wrapping on smaller screens */
+        gap: 20px;
+        width: 100%;
+        justify-content: center;
+      }
+
+      .settings-panel,
+      .video-panel {
+        background-color: var(--card-background-color);
+        padding: 25px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        border: 1px solid var(--border-color);
+      }
+
+      .settings-panel {
+        width: 100%;
+        max-width: 450px; /* Give settings a fixed max width */
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .settings-panel div {
+        display: flex;
+        flex-direction: column; /* Stack label and input */
+        gap: 5px;
+      }
+
+      .settings-panel label {
+        font-weight: 500;
+        font-size: 0.9em;
+        color: var(--secondary-color);
+      }
+
+      .settings-panel input[type="text"],
+      .settings-panel input[type="file"] {
+        padding: 10px;
+        border: 1px solid var(--input-border-color);
+        border-radius: var(--border-radius);
+        background-color: var(--input-bg-color);
+        font-size: 0.95em;
+        width: calc(100% - 22px); /* Account for padding and border */
+      }
+      .settings-panel input[type="file"] {
+        padding: 7px; /* Slightly less padding for file input */
+      }
+
+      .settings-panel input[type="checkbox"] {
+        margin-right: 8px;
+        transform: scale(1.1); /* Slightly larger checkboxes */
+        accent-color: var(--primary-color);
+      }
+      .settings-panel .checkbox-group label {
+        display: flex;
+        align-items: center;
+        font-weight: normal; /* Normal weight for checkbox labels */
+        font-size: 0.95em;
+        color: var(--text-color);
+      }
+
+      .setting-note {
+        /* New style for notes below settings */
+        font-size: 0.8em;
+        color: var(--secondary-color);
+        margin: 2px 0 0 25px; /* Align roughly under checkbox text if input is ~20px wide + margin */
+        padding: 0;
+        line-height: 1.2;
+      }
+
+      #sourcePreview {
+        max-width: 100px;
+        max-height: 100px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        margin-top: 5px;
+        object-fit: cover;
+      }
+
+      .video-panel {
+        flex: 1; /* Allow video panel to grow */
+        min-width: 320px; /* Minimum width for video */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .video-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 640px; /* Max video width */
+        background-color: #000; /* Black background for video */
+        border-radius: var(--border-radius);
+        overflow: hidden; /* Keep video within rounded corners */
+        box-shadow: var(--box-shadow);
+      }
+
+      video {
+        display: block; /* Remove extra space below video */
+        width: 100%;
+        height: auto;
+        border-radius: var(
+          --border-radius
+        ); /* Apply to video if wrapper has overflow hidden */
+      }
+      #localVideo {
+        transform: scaleX(-1); /* Mirror local view */
+      }
+
+      #fpsDisplay {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: #00ff00; /* Lime green */
+        padding: 5px 8px;
+        border-radius: 3px;
+        font-family: "Consolas", "Courier New", monospace;
+        font-size: 0.9em;
+        display: none; /* Hidden by default */
+      }
+
+      .controls {
+        margin-top: 25px;
+        display: flex;
+        gap: 15px;
+      }
+
+      button {
+        padding: 12px 25px;
+        font-size: 1em;
+        font-weight: 500;
+        border: none;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease;
+        box-shadow: var(--box-shadow);
+      }
+
+      #startButton,
+      #applySettingsButton {
+        background-color: var(--primary-color);
+        color: white;
+      }
+      #startButton:hover,
+      #applySettingsButton:hover {
+        background-color: var(--primary-hover-color);
+        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+      }
+      #startButton:disabled,
+      #applySettingsButton:disabled {
+        background-color: var(--secondary-color);
+        cursor: not-allowed;
+        opacity: 0.7;
+      }
+
+      #stopButton {
+        background-color: #dc3545; /* Red */
+        color: white;
+      }
+      #stopButton:hover {
+        background-color: #c82333;
+        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+      }
+      #stopButton:disabled {
+        background-color: var(--secondary-color);
+        cursor: not-allowed;
+        opacity: 0.7;
+      }
+
+      #status {
+        margin-top: 20px;
+        font-style: italic;
+        color: var(--secondary-color);
+        min-height: 1.5em; /* Reserve space */
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .main-content {
+          flex-direction: column;
+          align-items: center;
+        }
+        .settings-panel {
+          max-width: 100%; /* Full width on smaller screens */
+        }
+        .video-panel {
+          width: 100%;
+        }
+      }
+
+      .sample-faces {
+        display: flex;
+        gap: 10px; /* Spacing between images */
+        flex-wrap: wrap; /* Allow images to wrap to next line */
+        margin-top: 5px;
+      }
+
+      .sample-face-img {
+        width: 80px; /* Adjust size as needed */
+        height: 80px; /* Adjust size as needed */
+        object-fit: cover; /* Crop images to fit, maintaining aspect ratio */
+        border: 2px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: border-color 0.3s;
+      }
+
+      .sample-face-img:hover {
+        border-color: #007bff;
+      }
+
+      .sample-face-img.selected-sample {
+        border-color: #28a745; /* Green border for selected */
+        box-shadow: 0 0 5px #28a745;
+      }
+
+      .header {
+        position: relative;
+        background: url(demo.gif) center/cover no-repeat;
+        /* blend a semi-transparent black layer into the gif */
+        background-blend-mode: multiply;
+        background-color: rgba(0, 0, 0, 0.25);
+        padding: 40px 0;
+        text-align: center;
+        /* ensure links inherit the new color */
+        color: #fff;
+      }
+
+      /* Make sure any text sits above the background */
+      .header h1,
+      .header a {
+        position: relative;
+        z-index: 1;
+        color: #fff; /* bright white */
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+      }
+
+      /* If you need an even stronger overlay, use a pseudo-element */
+      .header::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Deep Live Web</h1>
+        <a
+          href="https://github.com/hacksider/Deep-Live-Cam"
+          target="_blank"
+          style="display: block"
+          >Original Project Link</a
+        >
+        <a href="/#">Source for This Website (coming soon)</a>
+      </div>
+
+      <div class="main-content">
+        <div class="settings-panel">
+          <h2>Settings</h2>
+
+          <!-- Source Image Controls -->
+          <div class="control-group">
+            <label for="sourceImagePath"
+              >Source Image Path (URL or Local):</label
+            >
+            <input
+              type="text"
+              id="sourceImagePath"
+              placeholder="e.g., /path/to/image.jpg or http://..."
+            />
+          </div>
+          <div class="control-group">
+            <label for="sourceImageFile">Or Upload Source Image:</label>
+            <input type="file" id="sourceImageFile" accept="image/*" />
+          </div>
+          <div class="source-preview-container">
+            <img
+              id="sourcePreview"
+              src="#"
+              alt="Source Image Preview"
+              style="display: none"
+            />
+          </div>
+
+          <!-- Sample Faces Section -->
+          <div class="control-group">
+            <h3>Sample Faces</h3>
+            <div id="sampleFacesContainer" class="sample-faces">
+              <!-- Placeholders - Update src and data-sample-path -->
+              <img
+                src="./dicaprio.png"
+                alt="Sample Face 1"
+                class="sample-face-img"
+                data-sample-path="frontend/dicaprio.png"
+                title="Click to use Leonardo DiCaprio"
+              />
+              <img
+                src="./elon.jpg"
+                alt="Sample Face 2"
+                class="sample-face-img"
+                data-sample-path="frontend/elon.jpg"
+                title="Click to use Elon Musk"
+              />
+              <img
+                src="./obama.png"
+                alt="Sample Face 3"
+                class="sample-face-img"
+                data-sample-path="frontend/obama.png"
+                title="Click to use Barack Obama"
+              />
+            </div>
+          </div>
+
+          <!-- Other Boolean Settings -->
+          <div class="control-group">
+            <label for="mouthMaskCheckbox">Enable Mouth Mask:</label>
+            <input type="checkbox" id="mouthMaskCheckbox" />
+          </div>
+          <div class="control-group">
+            <label for="showMouthMaskBoxCheckbox">Show Mouth Mask Box:</label>
+            <input type="checkbox" id="showMouthMaskBoxCheckbox" />
+          </div>
+          <div class="control-group">
+            <label for="colorCorrectionCheckbox"
+              >Enable Color Correction:</label
+            >
+            <input type="checkbox" id="colorCorrectionCheckbox" checked />
+          </div>
+          <div class="control-group">
+            <label for="faceEnhancerCheckbox">Enable Face Enhancer:</label>
+            <input type="checkbox" id="faceEnhancerCheckbox" disabled />
+            <p class="info-text">(Problematic, coming soon)</p>
+          </div>
+
+          <!-- Manual Apply Button -->
+          <button id="applySettingsButton">Apply Settings Manually</button>
+        </div>
+
+        <div class="video-panel">
+          <h2>Local Video</h2>
+          <div class="video-wrapper">
+            <video id="localVideo" autoplay muted playsinline></video>
+          </div>
+          <h2 style="margin-top: 20px">Remote Video (Swapped)</h2>
+          <div class="video-wrapper">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <div id="fpsDisplay">FPS: 0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="startButton">Start Webcam & Connect</button>
+        <button id="stopButton" disabled>Stop</button>
+      </div>
+      <div id="status">Ready</div>
+    </div>
+
+    <script src="main.js"></script>
+  </body>
+</html>
