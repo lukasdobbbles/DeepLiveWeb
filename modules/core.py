@@ -100,7 +100,16 @@ class SwapTrack(MediaStreamTrack):
         except Exception as e:
             print(f"Error receiving frame in SwapTrack: {e}")
             raise
-        
+
+        queue = getattr(self.track, "_queue", None)
+        if queue is not None:
+            try:
+                while queue.qsize() > 0:
+                    # get_nowait is synchronous; do NOT await it
+                    frame = queue.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+
         # end-of-stream
         if frame is None:
             return None
