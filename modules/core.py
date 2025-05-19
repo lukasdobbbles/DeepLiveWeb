@@ -131,8 +131,6 @@ class SwapTrack(MediaStreamTrack):
 
         # 5) convert _that_ back to BGR
         result_bgr = cv2.cvtColor(swapped_rgb, cv2.COLOR_RGB2BGR)
-        print(">> returning frame size:", result_bgr.shape)
-        print("TESTSTETSTS")
 
         # 6) wrap into a proper AV frame for WebRTC
         new_frame = VideoFrame.from_ndarray(result_bgr, format="bgr24")
