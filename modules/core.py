@@ -3,11 +3,12 @@
 import os
 import sys
 import logging
+
 # single thread doubles cuda performance - needs to be set before torch import
-if any(arg.startswith('--execution-provider') for arg in sys.argv):
-    os.environ['OMP_NUM_THREADS'] = '1'
+if any(arg.startswith("--execution-provider") for arg in sys.argv):
+    os.environ["OMP_NUM_THREADS"] = "1"
 # reduce tensorflow log level
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import warnings
 from typing import List, Optional
@@ -26,7 +27,7 @@ from aiortc import (
     MediaStreamTrack,
     RTCConfiguration,
     RTCIceServer,
-    RTCIceCandidate
+    RTCIceCandidate,
 )
 from aiortc.contrib.media import MediaRelay
 from av import VideoFrame
@@ -46,18 +47,29 @@ from modules.processors.frame import face_swapper as face_swapper_processor
 from modules.face_analyser import get_one_face
 from modules.typing_util import Face
 from modules.utilities import (
-    has_image_extension, is_image, is_video, detect_fps,
-    create_video, extract_frames, get_temp_frame_paths,
-    restore_audio, create_temp, move_temp, clean_temp,
-    normalize_output_path
+    has_image_extension,
+    is_image,
+    is_video,
+    detect_fps,
+    create_video,
+    extract_frames,
+    get_temp_frame_paths,
+    restore_audio,
+    create_temp,
+    move_temp,
+    clean_temp,
+    normalize_output_path,
 )
 import av
 
-if hasattr(modules.globals, 'execution_providers') and 'ROCMExecutionProvider' in modules.globals.execution_providers:
+if (
+    hasattr(modules.globals, "execution_providers")
+    and "ROCMExecutionProvider" in modules.globals.execution_providers
+):
     del torch
 
-warnings.filterwarnings('ignore', category=FutureWarning, module='insightface')
-warnings.filterwarnings('ignore', category=UserWarning, module='torchvision')
+warnings.filterwarnings("ignore", category=FutureWarning, module="insightface")
+warnings.filterwarnings("ignore", category=UserWarning, module="torchvision")
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("aiortc").setLevel(logging.INFO)
@@ -66,13 +78,16 @@ logging.info(f"aiortc version: {aiortc.__version__}")  # Log aiortc version
 
 SOURCE_FACE: Optional[Face] = None
 TEMP_UPLOAD_DIR = "temp_uploads"
-pc_config = RTCConfiguration(iceServers=[
-    RTCIceServer(
-        urls=["turns:standard.relay.metered.ca:443?transport=tcp"],
-        username="536f9e1ab6fbecbdb07daeb6",
-        credential="OGZFRgmsTXbAiMwQ"
-    )
-])
+pc_config = RTCConfiguration(
+    iceServers=[
+        RTCIceServer(
+            urls=["turns:standard.relay.metered.ca:443?transport=tcp"],
+            username="536f9e1ab6fbecbdb07daeb6",
+            credential="OGZFRgmsTXbAiMwQ",
+        )
+    ]
+)
+
 
 def ensure_temp_upload_dir_exists():
     if not os.path.exists(TEMP_UPLOAD_DIR):
@@ -116,7 +131,9 @@ class SwapTrack(MediaStreamTrack):
 
         # keep frame timing sane
         if self.last_pts is not None and frame.pts <= self.last_pts:
-            print(f"SwapTrack: PTS went backward (prev={self.last_pts}, curr={frame.pts})")
+            print(
+                f"SwapTrack: PTS went backward (prev={self.last_pts}, curr={frame.pts})"
+            )
         self.last_pts = frame.pts
 
         # 2) get a BGR numpy array for face detection + swapping
@@ -129,9 +146,7 @@ class SwapTrack(MediaStreamTrack):
         # 4) do the swap (in RGB space)
         if SOURCE_FACE and face and self.face_swapper_model:
             try:
-                swapped_rgb = face_swapper_processor.swap_face(
-                    SOURCE_FACE, face, rgb
-                )
+                swapped_rgb = face_swapper_processor.swap_face(SOURCE_FACE, face, rgb)
             except Exception as swap_err:
                 print(f"Swap error: {swap_err}")
                 swapped_rgb = rgb
@@ -147,7 +162,6 @@ class SwapTrack(MediaStreamTrack):
         new_frame.time_base = frame.time_base
 
         return new_frame
-
 
 
 connected_clients = set()
@@ -179,9 +193,7 @@ async def reload_source_face(new_source_path: str, is_temp_file: bool = False):
 
 
 def parse_ice_candidate(
-    cand_str: str,
-    sdp_mid: Optional[str] = None,
-    sdp_mline_index: Optional[int] = None
+    cand_str: str, sdp_mid: Optional[str] = None, sdp_mline_index: Optional[int] = None
 ) -> RTCIceCandidate:
     """
     Convert an SDP ICE candidate string into an aiortc RTCIceCandidate.
@@ -201,33 +213,34 @@ def parse_ice_candidate(
     RTCIceCandidate
         An instance ready to pass to RTCPeerConnection.addIceCandidate().
     """
-    # Split into fields per ICE 
+    # Split into fields per ICE
     print(cand_str)
     parts = cand_str.split()
     # foundation is after 'candidate:'
     foundation = parts[0].split(":", 1)[1]
-    component  = int(parts[1])
-    protocol   = parts[2]
-    priority   = int(parts[3])
-    ip         = parts[4]
-    port       = int(parts[5])
+    component = int(parts[1])
+    protocol = parts[2]
+    priority = int(parts[3])
+    ip = parts[4]
+    port = int(parts[5])
     # parts[6] should be "typ"
-    cand_type  = parts[7]
+    cand_type = parts[7]
     # Instantiate aiortc candidate
     return RTCIceCandidate(
-        component      = component,
-        foundation     = foundation,
-        ip             = ip,
-        port           = port,
-        priority       = priority,
-        protocol       = protocol,
-        type           = cand_type,
-        relatedAddress = None,
-        relatedPort    = None,
-        sdpMid         = sdp_mid,
-        sdpMLineIndex  = sdp_mline_index,
-        tcpType        = None
+        component=component,
+        foundation=foundation,
+        ip=ip,
+        port=port,
+        priority=priority,
+        protocol=protocol,
+        type=cand_type,
+        relatedAddress=None,
+        relatedPort=None,
+        sdpMid=sdp_mid,
+        sdpMLineIndex=sdp_mline_index,
+        tcpType=None,
     )
+
 
 async def handle_websocket_signaling(ws):
     global SOURCE_FACE
@@ -242,7 +255,7 @@ async def handle_websocket_signaling(ws):
                 "type": "candidate",
                 "candidate": candidate.to_sdp(),
                 "sdpMid": candidate.sdpMid,
-                "sdpMLineIndex": candidate.sdpMLineIndex
+                "sdpMLineIndex": candidate.sdpMLineIndex,
             }
         else:
             payload = {"type": "candidate", "candidate": None}
@@ -261,8 +274,13 @@ async def handle_websocket_signaling(ws):
     @pc.on("connectionstatechange")
     async def on_state():
         logging.info(f"[PC] state={pc.connectionState} for {ws.remote_address}")
-        if pc.connectionState in ("failed", "closed", "disconnected") and pc.signalingState != "closed":
-            logging.warning(f"[PC] Conn state {pc.connectionState}, closing PC for {ws.remote_address}.")
+        if (
+            pc.connectionState in ("failed", "closed", "disconnected")
+            and pc.signalingState != "closed"
+        ):
+            logging.warning(
+                f"[PC] Conn state {pc.connectionState}, closing PC for {ws.remote_address}."
+            )
             await pc.close()
 
     try:
@@ -276,33 +294,37 @@ async def handle_websocket_signaling(ws):
                 )
                 answer = await pc.createAnswer()
                 await pc.setLocalDescription(answer)
-                await ws.send(json.dumps({
-                    "sdp": pc.localDescription.sdp,
-                    "type": pc.localDescription.type
-                }))
+                await ws.send(
+                    json.dumps(
+                        {
+                            "sdp": pc.localDescription.sdp,
+                            "type": pc.localDescription.type,
+                        }
+                    )
+                )
 
             elif t == "candidate":
-                cand = data.get("candidate").get("candidate")
-                print(cand)
+                print(data)
+                cand = data.get("candidate")
                 if cand is None:
                     logging.info(f"[PC] {ws.remote_address} sent end-of-candidates")
                 else:
-                    sdp_mid   = data.get("sdpMid")
-                    sdp_index = data.get("sdpMLineIndex")
-                    # candidate data: 
-
+                    sdp_mid = data.get("candidate").get("sdpMid")
+                    sdp_index = data.get("candidate").get("sdpMLineIndex")
+                    # candidate data:
+                    cand = cand.get("candidate")
                     # build a real RTCIceCandidate
-                    ice_candidate = parse_ice_candidate(
-                        cand,
-                        sdp_mid,
-                        sdp_index
-                    )
+                    ice_candidate = parse_ice_candidate(cand, sdp_mid, sdp_index)
 
                     try:
                         await pc.addIceCandidate(ice_candidate)
-                        logging.info(f"[PC] Added ICE candidate from {ws.remote_address}: {cand[:60]}…")
+                        logging.info(
+                            f"[PC] Added ICE candidate from {ws.remote_address}: {cand[:60]}…"
+                        )
                     except Exception as e:
-                        logging.error(f"[PC] Failed to add ICE candidate: {e}", exc_info=True)
+                        logging.error(
+                            f"[PC] Failed to add ICE candidate: {e}", exc_info=True
+                        )
             elif t == "update_settings":
 
                 s = data.get("settings", {})
@@ -314,7 +336,7 @@ async def handle_websocket_signaling(ws):
                     ensure_temp_upload_dir_exists()
                     tmp = os.path.join(
                         TEMP_UPLOAD_DIR,
-                        f"upload_{uuid.uuid4().hex}_{int(time.time())}.png"
+                        f"upload_{uuid.uuid4().hex}_{int(time.time())}.png",
                     )
                     with open(tmp, "wb") as f:
                         f.write(imgdata)
@@ -324,16 +346,15 @@ async def handle_websocket_signaling(ws):
 
                 # update globals
                 modules.globals.mouth_mask = s.get(
-                    "mouthMask",
-                    getattr(modules.globals, "mouth_mask", False)
+                    "mouthMask", getattr(modules.globals, "mouth_mask", False)
                 )
                 modules.globals.color_correction = s.get(
                     "colorCorrection",
-                    getattr(modules.globals, "color_correction", False)
+                    getattr(modules.globals, "color_correction", False),
                 )
                 modules.globals.show_mouth_mask_box = s.get(
                     "showMouthMaskBox",
-                    getattr(modules.globals, "show_mouth_mask_box", False)
+                    getattr(modules.globals, "show_mouth_mask_box", False),
                 )
                 logging.info(
                     f"Settings updated for {ws.remote_address}: "
@@ -354,14 +375,18 @@ async def handle_websocket_signaling(ws):
             f"[SIGNAL] JSON decode err {ws.remote_address}: {e}. Msg: {msg[:200] if isinstance(msg, str) else type(msg)}"
         )
     except Exception as e:
-        logging.error(f"[SIGNAL] Unhandled err for {ws.remote_address}: {e}", exc_info=True)
+        logging.error(
+            f"[SIGNAL] Unhandled err for {ws.remote_address}: {e}", exc_info=True
+        )
 
     finally:
         logging.info(f"[SIGNAL] Cleaning up {ws.remote_address}")
         connected_clients.discard(ws)
         if pc and pc.signalingState != "closed":
             await pc.close()
-        logging.info(f"[SIGNAL] Closed {ws.remote_address}. PC state: {getattr(pc, 'signalingState', 'N/A')}")
+        logging.info(
+            f"[SIGNAL] Closed {ws.remote_address}. PC state: {getattr(pc, 'signalingState', 'N/A')}"
+        )
 
 
 def run_server_main_task():
@@ -381,27 +406,47 @@ def run_server_main_task():
 
     return websockets.serve(handle_websocket_signaling, host, port), stop_event
 
+
 def parse_args():
-    ap = argparse.ArgumentParser(description=(getattr(modules.metadata, 'name', 'App') + ' WebRTC Server'))
-    ap.add_argument('-s', '--source', dest='source_path')
-    ap.add_argument('--mouth-mask', action='store_true', dest='mouth_mask', default=False)
-    ap.add_argument('--max-memory', type=int, default=getattr(modules.globals, 'max_memory', None), dest='max_memory')
-    ap.add_argument('--execution-provider', nargs='+', default=getattr(modules.globals, 'execution_providers', ['CPUExecutionProvider']), dest='execution_provider')
+    ap = argparse.ArgumentParser(
+        description=(getattr(modules.metadata, "name", "App") + " WebRTC Server")
+    )
+    ap.add_argument("-s", "--source", dest="source_path")
+    ap.add_argument(
+        "--mouth-mask", action="store_true", dest="mouth_mask", default=False
+    )
+    ap.add_argument(
+        "--max-memory",
+        type=int,
+        default=getattr(modules.globals, "max_memory", None),
+        dest="max_memory",
+    )
+    ap.add_argument(
+        "--execution-provider",
+        nargs="+",
+        default=getattr(
+            modules.globals, "execution_providers", ["CPUExecutionProvider"]
+        ),
+        dest="execution_provider",
+    )
     args = ap.parse_args()
 
     modules.globals.source_path = args.source_path
     modules.globals.mouth_mask = args.mouth_mask
     modules.globals.max_memory = args.max_memory
-    modules.globals.execution_providers = decode_execution_providers(args.execution_provider)
+    modules.globals.execution_providers = decode_execution_providers(
+        args.execution_provider
+    )
+
 
 def decode_execution_providers(reqs: List[str]) -> List[str]:
     try:
         avail = onnxruntime.get_available_providers()
     except Exception as e:
         logging.error(f"ONNX prov err: {e}. Default CPU.")
-        return ['CPUExecutionProvider']
+        return ["CPUExecutionProvider"]
 
-    enc = [p.replace('ExecutionProvider', '').lower() for p in avail]
+    enc = [p.replace("ExecutionProvider", "").lower() for p in avail]
     out = []
     for r in reqs:
         for p_avail, e_avail in zip(avail, enc):
@@ -411,26 +456,30 @@ def decode_execution_providers(reqs: List[str]) -> List[str]:
 
     if not out:
         logging.warning("No valid exec prov found, default CPU.")
-        return ['CPUExecutionProvider']
+        return ["CPUExecutionProvider"]
 
     logging.info(f"Using exec providers: {out}")
     return out
 
+
 def limit_resources():
-    if 'tensorflow' in sys.modules:
+    if "tensorflow" in sys.modules:
         try:
-            for dev in tensorflow.config.experimental.list_physical_devices('GPU'):
+            for dev in tensorflow.config.experimental.list_physical_devices("GPU"):
                 tensorflow.config.experimental.set_memory_growth(dev, True)
-            if tensorflow.config.experimental.list_physical_devices('GPU'):
+            if tensorflow.config.experimental.list_physical_devices("GPU"):
                 logging.info("TF GPU mem growth enabled.")
         except Exception as e:
             logging.warning(f"Could not config TF GPU mem growth: {e}")
+
 
 async def main():
     # Start server and wait for shutdown signal
     serve, stop_event = run_server_main_task()
     server = await serve
-    logging.info(f"WebSocket server started ws://{server.sockets[0].getsockname()[0]}:{server.sockets[0].getsockname()[1]}")
+    logging.info(
+        f"WebSocket server started ws://{server.sockets[0].getsockname()[0]}:{server.sockets[0].getsockname()[1]}"
+    )
     await stop_event.wait()
     logging.info("Cleaning temp files...")
     clean_temp()
@@ -440,12 +489,12 @@ async def main():
 def run():
     # defaults
     defaults = {
-        'source_path': None,
-        'mouth_mask': False,
-        'color_correction': False,
-        'show_mouth_mask_box': False,
-        'max_memory': None,
-        'execution_providers': ['CPUExecutionProvider']
+        "source_path": None,
+        "mouth_mask": False,
+        "color_correction": False,
+        "show_mouth_mask_box": False,
+        "max_memory": None,
+        "execution_providers": ["CPUExecutionProvider"],
     }
     for k, v in defaults.items():
         if not hasattr(modules.globals, k):

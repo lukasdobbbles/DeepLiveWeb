@@ -99,7 +99,7 @@ async function start() {
       video: {
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        frameRate: { ideal: 15 },
+        frameRate: { ideal: 10 },
       },
     });
     localVideo.srcObject = localStream;
