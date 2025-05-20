@@ -81,9 +81,9 @@ TEMP_UPLOAD_DIR = "temp_uploads"
 pc_config = RTCConfiguration(
     iceServers=[
         RTCIceServer(
-            urls=["turns:standard.relay.metered.ca:443?transport=tcp"],
-            username="536f9e1ab6fbecbdb07daeb6",
-            credential="OGZFRgmsTXbAiMwQ",
+            urls=[
+                "stun:stun.l.google.com:19302",
+            "stun:stun.l.google.com:5349"],
         )
     ]
 )

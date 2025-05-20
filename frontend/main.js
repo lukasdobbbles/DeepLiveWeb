@@ -28,9 +28,10 @@ const pcConfig = {
   iceTransportPolicy: "relay",
   iceServers: [
     {
-      urls: "turns:standard.relay.metered.ca:443?transport=tcp",
-      username: "536f9e1ab6fbecbdb07daeb6",
-      credential: "OGZFRgmsTXbAiMwQ",
+      urls: "stun:stun.l.google.com:19302",
+    },
+    {
+      urls: "stun:stun.l.google.com:5349",
     },
   ],
 };
@@ -99,7 +100,7 @@ async function start() {
       video: {
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        frameRate: { ideal: 10 },
+        frameRate: { ideal: 15 },
       },
     });
     localVideo.srcObject = localStream;
